@@ -1,0 +1,96 @@
+# Informe de Auditoría de Seguridad - Bricks Heist
+
+**Autor:** Javier
+**Fecha:** 10/03/2026
+**Clasificación:** CONFIDENCIAL (Simulado)
+
+---
+
+## 1. Resumen Ejecutivo
+Se realizó una auditoría de seguridad sobre la máquina objetivo **"Bricks Heist"**. Se identificaron **6 hallazgos (3 críticos y 3 altos)** que permitieron el acceso no autorizado al sistema. El riesgo general se clasifica como **🔴 ALTO**.
+
+El servidor fue comprometido inicialmente a través de un tema de WordPress vulnerable y posteriormente utilizado para criptominería ilegal.
+
+---
+
+## 2. Hallazgos Principales
+
+### Hallazgo 1: CVE-2024-25600 - Ejecución Remota de Código en Bricks Builder Theme
+- **Severidad:** 🔴 Crítica (CVSS 9.8)
+- **Descripción:** El tema Bricks Builder versión 1.9.5 es vulnerable a una vulnerabilidad de Ejecución Remota de Código (RCE) no autenticada (CVE-2024-25600). Esta vulnerabilidad permite a un atacante ejecutar código PHP arbitrario en el servidor sin necesidad de credenciales, lo que resultó en el compromiso inicial del sistema.
+- **Recomendación:**
+  - Actualizar inmediatamente Bricks Builder a la versión 1.9.6.1 o superior
+  - Implementar un WAF (Web Application Firewall) para detectar intentos de explotación
+  - Realizar auditorías de código en temas y plugins personalizados
+  - Mantener un inventario actualizado de todos los componentes de WordPress
+- **Evidencia:**
+
+  ![CVE-2024-25600-Bricks_Builder_Theme_v1.9.5](assets/CVE-2024-25600-Bricks_Builder_Theme_v1.9.5.png)
+
+### Hallazgo 2: wp-config.php con Permisos Inseguros
+- **Severidad:** 🟠 Alta
+- **Descripción:** El archivo de configuración de WordPress (wp-config.php) tiene permisos 666 (rw-rw-rw-), lo que permite que cualquier usuario en el sistema pueda leer y modificar este archivo. Este archivo contiene credenciales de base de datos, claves de autenticación y otra información sensible.
+- **Recomendación:**
+  - Cambiar permisos a 640 o 600: chmod 640 /data/www/default/wp-config.php
+  - Asegurar que el propietario sea el usuario del servicio web (www-data o apache)
+  - Implementar escaneos periódicos de permisos en archivos sensibles
+
+### Hallazgo 3: phpMyAdmin Expuesto Públicamente
+- **Severidad:** 🟠 Alta
+- **Descripción:** phpMyAdmin está accesible públicamente en el directorio /data/www/default/phpmyadmin/. Esta herramienta de administración de bases de datos puede ser utilizada para obtener acceso completo a la base de datos si se comprometen las credenciales o si existen vulnerabilidades en la versión instalada.
+- **Recomendación:**
+  - Restringir el acceso a phpMyAdmin por IP (allowlist)
+  - Implementar autenticación de dos factores (2FA)
+  - Mover phpMyAdmin a una ubicación no estándar
+  - Considerar el uso de VPN para acceso administrativo
+  - Eliminar phpMyAdmin si no es estrictamente necesario en producción
+- **Evidencia:**
+
+  ![phpmyadmin](assets/phpmyadmin.png)
+
+### Hallazgo 4: Servicio systemd Malicioso (ubuntu.service)
+- **Severidad:** 🔴 Crítica
+- **Descripción:** Se identificó un servicio systemd malicioso (ubuntu.service) configurado para persistencia en el sistema. Este servicio ejecuta el binario /lib/NetworkManager/nm-inet-dialog al inicio del sistema, asegurando que el malware se ejecute continuamente incluso después de reinicios.
+- **Recomendación:**
+  - Eliminar el servicio malicioso: systemctl disable ubuntu.service && rm /etc/systemd/system/ubuntu.service
+  - Recargar systemd: systemctl daemon-reload
+  - Implementar monitoreo de cambios en /etc/systemd/system/
+  - Usar herramientas de integridad de archivos (AIDE, Tripwire)
+- **Evidencia:**
+
+  ![ubuntu.service](assets/ubuntu.service.png)
+
+### Hallazgo 5: Malware de Criptominería (nm-inet-dialog)
+- **Severidad:** 🔴 Crítica
+- **Descripción:** Se identificó un binario malicioso disfrazado como componente de NetworkManager (nm-inet-dialog) ubicado en /lib/NetworkManager/. Este malware realiza criptominería de Bitcoin, consumiendo recursos del sistema y generando ganancias para los atacantes. El proceso se comunica con pools de minería externos.
+- **Recomendación:**
+  - Eliminar el binario malicioso: rm /lib/NetworkManager/nm-inet-dialog
+  - Eliminar archivos de configuración asociados: rm /lib/NetworkManager/inet.conf
+  - Implementar soluciones EDR (Endpoint Detection and Response)
+  - Monitorear procesos con alto consumo de CPU
+  - Bloquear comunicaciones a pools de minería conocidos en el firewall
+- **Evidencia:**
+
+  ![nm-inet-dialog](assets/nm-inet-dialog.png)
+
+### Hallazgo 6: Configuración de Minería con Wallet Codificada
+- **Severidad:** 🟠 Alta
+- **Descripción:** Se encontró un archivo de configuración (inet.conf) que contiene una wallet address codificada en hexadecimal + Base64, utilizada para recibir las ganancias de la criptominería. Este archivo sirve como evidencia del grupo de amenazas responsable y puede ser utilizado para inteligencia de amenazas.
+- **Recomendación:**
+  - Eliminar todos los archivos de configuración del miner
+  - Reportar la wallet address a plataformas de Threat Intelligence
+  - Buscar la wallet en bases de datos de IOCs (VirusTotal, ThreatConnect)
+  - Documentar todos los IOCs para compartir con la comunidad de seguridad
+- **Evidencia:**
+
+  ![inet.conf](assets/inet.conf.png)
+
+  ![encryp_wallet](assets/encryp_wallet.png)
+
+---
+
+## 3. Conclusión General
+**Brick Press Media Co.** sufrió un compromiso total de servidor. El sitio WordPress fue explotado mediante CVE-2024-25600 y convertido en una plataforma de criptominería ilegal. Se requiere remediación inmediata y endurecimiento del sistema.
+
+---
+*Este informe es producto de un entorno de laboratorio educativo (TryHackMe).*
